@@ -1,5 +1,4 @@
-﻿using LeagueSandbox.GameServer.Core.Logic.PacketHandlers;
-using LeagueSandbox.GameServer.Logic.Enet;
+﻿using LeagueSandbox.GameServer.Logic.Enet;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,16 +7,14 @@ using System.IO;
 using System.Numerics;
 using LeagueSandbox.GameServer.Core.Logic;
 using LeagueSandbox.GameServer.Logic.GameObjects;
-using LeagueSandbox.GameServer.Core.Logic.RAF;
-using LeagueSandbox.GameServer.Core.Logic.PacketHandlers.Packets;
 using LeagueSandbox.GameServer.Logic.Content;
+using LeagueSandbox.GameServer.Logic.Packets.PacketHandlers;
 
 namespace LeagueSandbox.GameServer.Logic.Packets
 {
     public class Packet
     {
         protected Game _game = Program.ResolveDependency<Game>();
-        protected RAFManager _rafManager = Program.ResolveDependency<RAFManager>();
 
         private MemoryStream memStream;
         protected BinaryWriter buffer;
@@ -97,7 +94,7 @@ namespace LeagueSandbox.GameServer.Logic.Packets
         public static byte[] EncodeWaypoints(List<Vector2> waypoints)
         {
             var game = Program.ResolveDependency<Game>();
-            var mapSize = game.Map.GetSize();
+            var mapSize = game.Map.NavGrid.GetSize();
             var numCoords = waypoints.Count * 2;
 
             var maskBytes = new byte[((numCoords - 3) / 8) + 1];
@@ -168,8 +165,8 @@ namespace LeagueSandbox.GameServer.Logic.Packets
                 var summonerSpells = p.SummonerSkills;
                 buffer.Write((long)p.UserId);
                 buffer.Write((short)0x1E); // unk
-                buffer.Write((uint)_rafManager.GetHash(summonerSpells[0]));
-                buffer.Write((uint)_rafManager.GetHash(summonerSpells[1]));
+                buffer.Write((uint)HashFunctions.HashString(summonerSpells[0]));
+                buffer.Write((uint)HashFunctions.HashString(summonerSpells[1]));
                 buffer.Write((byte)0); // bot boolean
                 buffer.Write((int)p.Team); // Probably a short
                 buffer.fill(0, 64); // name is no longer here
@@ -399,7 +396,7 @@ namespace LeagueSandbox.GameServer.Logic.Packets
             buffer.Write((float)m.GetZ()); //z
             buffer.Write((float)m.Y); //y
             buffer.Write((float)m.Facing.X); //facing x
-            buffer.Write((float)_game.Map.GetHeightAtLocation(m.Facing.X, m.Facing.Y)); //facing z
+            buffer.Write((float)_game.Map.NavGrid.GetHeightAtLocation(m.Facing.X, m.Facing.Y)); //facing z
             buffer.Write((float)m.Facing.Y); //facing y
 
             buffer.Write(Encoding.Default.GetBytes(m.Name));
@@ -527,7 +524,7 @@ namespace LeagueSandbox.GameServer.Logic.Packets
             buffer.Write((float)m.GetZ()); //z
             buffer.Write((float)m.Y); //y
             buffer.Write((float)m.Facing.X); //facing x
-            buffer.Write((float)_game.Map.GetHeightAtLocation(m.Facing.X, m.Facing.Y)); //facing z
+            buffer.Write((float)_game.Map.NavGrid.GetHeightAtLocation(m.Facing.X, m.Facing.Y)); //facing z
             buffer.Write((float)m.Facing.Y); //facing y
 
             buffer.Write(Encoding.Default.GetBytes(m.Name));
@@ -1940,19 +1937,14 @@ namespace LeagueSandbox.GameServer.Logic.Packets
             buffer.Write((byte)slot); //Slot
             buffer.Write((byte)buffType); //Type
             buffer.Write((byte)stacks); // stacks
-            buffer.Write((byte)0x00); // Visible
-            buffer.Write(_rafManager.GetHash(name)); //Buff id
-            buffer.Write((byte)0x00); //
-            buffer.Write((byte)0x00); // <-- Probably runningTime
-            buffer.Write((byte)0x00); //
-            buffer.Write((byte)0x00); //
+            buffer.Write((byte)0x00); // Visible was (byte)0x00
+            buffer.Write(HashFunctions.HashString(name)); //Buff id
+
+            buffer.Write((int)0); // <-- Probably runningTime
+
+            buffer.Write((float)0); // <- ProgressStartPercent
 
             buffer.Write((float)time);
-
-            buffer.Write((byte)0x00);
-            buffer.Write((byte)0x50);
-            buffer.Write((byte)0xc3);
-            buffer.Write((byte)0x46);
 
             if (source != null)
             {
@@ -1995,7 +1987,7 @@ namespace LeagueSandbox.GameServer.Logic.Packets
         public RemoveBuff(Unit u, string name, byte slot) : base(PacketCmd.PKT_S2C_RemoveBuff, u.NetId)
         {
             buffer.Write((byte)slot);
-            buffer.Write(_rafManager.GetHash(name));
+            buffer.Write(HashFunctions.HashString(name));
             buffer.Write((int)0x0);
             //buffer.Write(u.NetId);//source?
         }
@@ -2045,9 +2037,18 @@ namespace LeagueSandbox.GameServer.Logic.Packets
             targetNetId = reader.ReadInt32();
             type = (Pings)reader.ReadByte();
         }
+
         public AttentionPing()
         {
 
+        }
+
+        public AttentionPing(float x, float y, int netId, Pings type)
+        {
+            this.x = x;
+            this.y = y;
+            this.targetNetId = netId;
+            this.type = type;
         }
     }
 
@@ -2479,20 +2480,20 @@ namespace LeagueSandbox.GameServer.Logic.Packets
             buffer.Write((int)s.Owner.getChampionHash());
             buffer.Write((uint)futureProjNetId); // The projectile ID that will be spawned
             buffer.Write((float)x);
-            buffer.Write((float)m.GetHeightAtLocation(x, y));
+            buffer.Write((float)m.NavGrid.GetHeightAtLocation(x, y));
             buffer.Write((float)y);
             buffer.Write((float)xDragEnd);
-            buffer.Write((float)m.GetHeightAtLocation(xDragEnd, yDragEnd));
+            buffer.Write((float)m.NavGrid.GetHeightAtLocation(xDragEnd, yDragEnd));
             buffer.Write((float)yDragEnd);
             buffer.Write((byte)0); // numTargets (if >0, what follows is a list of {uint32 targetNetId, uint8 hitResult})
-            buffer.Write((float)s.CastTime); // designerCastTime
+            buffer.Write((float)s.SpellData.GetCastTime()); // designerCastTime
             buffer.Write((float)0.0f); // extraTimeForCast
-            buffer.Write((float)s.CastTime /*+ s.ChannelTime*/); // designerTotalTime
+            buffer.Write((float)s.SpellData.GetCastTime() /*+ s.ChannelTime*/); // designerTotalTime
             buffer.Write((float)s.getCooldown());
             buffer.Write((float)0.0f); // startCastTime
             buffer.Write((byte)0); // flags (isAutoAttack, secondAttack, forceCastingOrChannelling, mShouldOverrideCastPosition)
             buffer.Write((byte)s.Slot);
-            buffer.Write((float)s.getCost());
+            buffer.Write((float)s.SpellData.ManaCost[s.Level]);
             buffer.Write((float)s.Owner.X);
             buffer.Write((float)s.Owner.GetZ());
             buffer.Write((float)s.Owner.Y);
@@ -2518,8 +2519,8 @@ namespace LeagueSandbox.GameServer.Logic.Packets
             }
 
             var summonerSpells = player.SummonerSkills;
-            buffer.Write((uint)_rafManager.GetHash(summonerSpells[0]));
-            buffer.Write((uint)_rafManager.GetHash(summonerSpells[1]));
+            buffer.Write((uint)HashFunctions.HashString(summonerSpells[0]));
+            buffer.Write((uint)HashFunctions.HashString(summonerSpells[1]));
 
             int talentsRequired = 80;
             var talentsHashes = new Dictionary<int, byte>(){
@@ -2546,10 +2547,10 @@ namespace LeagueSandbox.GameServer.Logic.Packets
     {
         public SpawnProjectile(Projectile p) : base(PacketCmd.PKT_S2C_SpawnProjectile, p.NetId)
         {
-            float targetZ = _game.Map.GetHeightAtLocation(p.Target.X, p.Target.Y);
+            float targetZ = _game.Map.NavGrid.GetHeightAtLocation(p.Target.X, p.Target.Y);
 
             buffer.Write((float)p.X);
-            buffer.Write((float)p.GetZ()+100.0f);
+            buffer.Write((float)p.GetZ() + 100.0f);
             buffer.Write((float)p.Y);
             buffer.Write((float)p.X);
             buffer.Write((float)p.GetZ());
@@ -2561,10 +2562,10 @@ namespace LeagueSandbox.GameServer.Logic.Packets
             buffer.Write((float)-166.666656f); // Unk
             buffer.Write((float)-245.531418f); // Unk
             buffer.Write((float)p.X);
-            buffer.Write((float)p.GetZ()+100.0f);
+            buffer.Write((float)p.GetZ() + 100.0f);
             buffer.Write((float)p.Y);
             buffer.Write((float)p.Target.X);
-            buffer.Write((float)_game.Map.GetHeightAtLocation(p.Target.X, p.Target.Y));
+            buffer.Write((float)_game.Map.NavGrid.GetHeightAtLocation(p.Target.X, p.Target.Y));
             buffer.Write((float)p.Target.Y);
             buffer.Write((float)p.X);
             buffer.Write((float)p.GetZ());
@@ -2602,10 +2603,10 @@ namespace LeagueSandbox.GameServer.Logic.Packets
 
             buffer.Write((int)p.NetId);
             buffer.Write((float)p.Target.X);
-            buffer.Write((float)_game.Map.GetHeightAtLocation(p.Target.X, p.Target.Y));
+            buffer.Write((float)_game.Map.NavGrid.GetHeightAtLocation(p.Target.X, p.Target.Y));
             buffer.Write((float)p.Target.Y);
             buffer.Write((float)p.Target.X);
-            buffer.Write((float)_game.Map.GetHeightAtLocation(p.Target.X, p.Target.Y)+100.0f);
+            buffer.Write((float)_game.Map.NavGrid.GetHeightAtLocation(p.Target.X, p.Target.Y) + 100.0f);
             buffer.Write((float)p.Target.Y);
             if (!p.Target.IsSimpleTarget)
             {
@@ -2667,11 +2668,11 @@ namespace LeagueSandbox.GameServer.Logic.Packets
         {
             buffer.Write((byte)1); // number of particles
             buffer.Write((uint)particle.Owner.getChampionHash());
-            buffer.Write((uint)_rafManager.GetHash(particle.Name));
+            buffer.Write((uint)HashFunctions.HashString(particle.Name));
             buffer.Write((int)0x00000020); // flags ?
 
             buffer.Write((short)0); // Unk
-            buffer.Write((uint)_rafManager.GetHash(particle.BoneName));
+            buffer.Write((uint)HashFunctions.HashString(particle.BoneName));
 
             buffer.Write((byte)1); // number of targets ?
             buffer.Write((uint)particle.Owner.NetId);
@@ -2688,12 +2689,12 @@ namespace LeagueSandbox.GameServer.Logic.Packets
             for (var i = 0; i < 3; ++i)
             {
                 var map = _game.Map;
-                var ownerHeight = map.GetHeightAtLocation(particle.Owner.X, particle.Owner.Y);
-                var particleHeight = map.GetHeightAtLocation(particle.X, particle.Y);
+                var ownerHeight = map.NavGrid.GetHeightAtLocation(particle.Owner.X, particle.Owner.Y);
+                var particleHeight = map.NavGrid.GetHeightAtLocation(particle.X, particle.Y);
                 var higherValue = Math.Max(ownerHeight, particleHeight);
-                buffer.Write((short)((particle.Target.X - _game.Map.GetWidth() / 2) / 2));
+                buffer.Write((short)((particle.Target.X - _game.Map.NavGrid.MapWidth / 2) / 2));
                 buffer.Write((float)higherValue);
-                buffer.Write((short)((particle.Target.Y - _game.Map.GetHeight() / 2) / 2));
+                buffer.Write((short)((particle.Target.Y - _game.Map.NavGrid.MapHeight / 2) / 2));
             }
 
             buffer.Write((uint)0); // unk
@@ -2701,6 +2702,14 @@ namespace LeagueSandbox.GameServer.Logic.Packets
             buffer.Write((uint)0); // unk
             buffer.Write((uint)0); // unk
             buffer.Write((float)particle.Size); // Particle size
+        }
+    }
+
+    public class DestroyParticle : BasePacket
+    {
+        public DestroyParticle(Particle p) : base(PacketCmd.PKT_S2C_DestroyObject, p.NetId)
+        {
+            buffer.Write((uint)p.NetId);
         }
     }
 

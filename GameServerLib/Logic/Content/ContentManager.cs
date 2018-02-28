@@ -1,4 +1,5 @@
 ﻿using LeagueSandbox.GameServer.Core.Logic;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
@@ -10,6 +11,8 @@ namespace LeagueSandbox.GameServer.Logic.Content
     public class ContentManager
     {
         private Logger _logger = Program.ResolveDependency<Logger>();
+        private Dictionary<string, SpellData> _spellData = new Dictionary<string, SpellData>();
+        private Dictionary<string, CharData> _charData = new Dictionary<string, CharData>();
 
         private static readonly string[] CONTENT_TYPES = new string[]
         {
@@ -71,7 +74,7 @@ namespace LeagueSandbox.GameServer.Logic.Content
                 var contentDirectories = Directory.GetDirectories(folderPath);
                 foreach (var directory in contentDirectories)
                 {
-                    contents.Add(directory.Split('\\').Last());
+                    contents.Add(directory.Replace('\\', '/').Split('/').Last());
                 }
             }
             return contents.ToArray();
@@ -190,6 +193,28 @@ namespace LeagueSandbox.GameServer.Logic.Content
             var fileName = $"{spellName}/{spellName}.json";
 
             return GetContentPath(contentPackages, contentType, fileName);
+        }
+        
+        public SpellData GetSpellData(string spellName)
+        {
+            if (_spellData.ContainsKey(spellName))
+            {
+                return _spellData[spellName];
+            }
+            _spellData[spellName] = new SpellData();
+            _spellData[spellName].Load(spellName);
+            return _spellData[spellName];
+        }
+
+        public CharData GetCharData(string charName)
+        {
+            if (_charData.ContainsKey(charName))
+            {
+                return _charData[charName];
+            }
+            _charData[charName] = new CharData();
+            _charData[charName].Load(charName);
+            return _charData[charName];
         }
 
         public static ContentManager LoadGameMode(string gameModeName)

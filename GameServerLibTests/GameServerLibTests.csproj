@@ -8,7 +8,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>LeagueSandbox.GameServerTests</RootNamespace>
     <AssemblyName>GameServerLibTests</AssemblyName>
-    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
@@ -16,6 +16,7 @@
     <ReferencePath>$(ProgramFiles)\Common Files\microsoft shared\VSTT\$(VisualStudioVersion)\UITestExtensionPackages</ReferencePath>
     <IsCodedUITest>False</IsCodedUITest>
     <TestProjectType>UnitTest</TestProjectType>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup>
     <RunPostBuildEvent>Always</RunPostBuildEvent>
@@ -39,9 +40,16 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="ENetCS, Version=1.3.1.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\ENetSharpLeague.1.2.1-beta\lib\net461\ENetCS.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.VisualStudio.QualityTools.UnitTestFramework, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\lib\Microsoft.VisualStudio.QualityTools.UnitTestFramework.dll</HintPath>
+    </Reference>
+    <Reference Include="Ninject, Version=3.2.0.0, Culture=neutral, PublicKeyToken=c7192dc5380945e7, processorArchitecture=MSIL">
+      <HintPath>..\packages\Ninject.3.2.2.0\lib\net45-full\Ninject.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System" />
   </ItemGroup>
@@ -57,6 +65,7 @@
     <Compile Include="Tests\Items\TestInventoryManager.cs" />
     <Compile Include="Tests\Logic\API\ApiFunctionManagerTests.cs" />
     <Compile Include="Tests\Logic\Chatbox\ChatboxManagerTests.cs" />
+    <Compile Include="Tests\Logic\Chatbox\TestCommand.cs" />
     <Compile Include="Tests\Logic\TestGameplayElements.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Tests\Blowfish\TestBlowfish.cs" />
@@ -72,6 +81,10 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Framework\" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="app.config" />
+    <None Include="packages.config" />
   </ItemGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '10.0' And '$(IsCodedUITest)' == 'True'">
@@ -98,27 +111,24 @@
     <_ContentTargetDirectory>$(TargetDir)Content\</_ContentTargetDirectory>
     <_SettingsSourceDirectory>$(SolutionDir)GameServerApp\Settings</_SettingsSourceDirectory>
     <_SettingsTargetDirectory>$(TargetDir)Settings\</_SettingsTargetDirectory>
-    <_LuaLibSourceDirectory>$(SolutionDir)GameServerLib\LuaLib</_LuaLibSourceDirectory>
-    <_LuaLibTargetdirectory>$(TargetDir)LuaLib\</_LuaLibTargetdirectory>
     <_LibSourceDirectory>$(SolutionDir)lib</_LibSourceDirectory>
     <_LibTargetDirectory>$(TargetDir)</_LibTargetDirectory>
-    <_NLuaSourceDirectory>$(SolutionDir)packages\NLua.1.3.2.1\lib\native\.</_NLuaSourceDirectory>
-    <_NLuaTargetDirectory>$(TargetDir)</_NLuaTargetDirectory>
-    <_ENetSharpLeagueSourceDirectory>$(SolutionDir)packages\ENetSharpLeague.1.1.0\lib\native\.</_ENetSharpLeagueSourceDirectory>
+    <_ENetSharpLeagueSourceDirectory>$(SolutionDir)packages\ENetSharpLeague.1.2.1-beta\lib\native\.</_ENetSharpLeagueSourceDirectory>
     <_ENetSharpLeagueTargetDirectory>$(TargetDir)</_ENetSharpLeagueTargetDirectory>
+    <_IsMac>false</_IsMac>
+    <_IsMac Condition="'$(OS)' == 'Unix' And Exists ('/Library/Frameworks')">true</_IsMac>
   </PropertyGroup>
   <PropertyGroup Condition="'$(OS)' != 'Unix'">
     <_CopyCommand>xcopy /s /y /q /d</_CopyCommand>
   </PropertyGroup>
   <PropertyGroup Condition="'$(OS)' == 'Unix'">
-    <_CopyCommand>cp -r -u</_CopyCommand>
+    <_CopyCommand Condition="'$(_IsMac)' == 'false'">cp -r -u</_CopyCommand>
+    <_CopyCommand Condition="'$(_IsMac)' == 'true'">cp -Rf</_CopyCommand>
   </PropertyGroup>
   <Target Name="AfterBuild">
     <Exec Command="$(_CopyCommand) &quot;$(_ContentSourceDirectory)&quot; &quot;$(_ContentTargetDirectory)&quot;" />
     <Exec Command="$(_CopyCommand) &quot;$(_SettingsSourceDirectory)&quot; &quot;$(_SettingsTargetDirectory)&quot;" />
-    <Exec Command="$(_CopyCommand) &quot;$(_LuaLibSourceDirectory)&quot; &quot;$(_LuaLibTargetdirectory)&quot;" />
     <Exec Command="$(_CopyCommand) &quot;$(_LibSourceDirectory)&quot; &quot;$(_LibTargetDirectory)&quot;" />
-    <Exec Command="$(_CopyCommand) &quot;$(_NLuaSourceDirectory)&quot; &quot;$(_NLuaTargetDirectory)&quot;" />
     <Exec Command="$(_CopyCommand) &quot;$(_ENetSharpLeagueSourceDirectory)&quot; &quot;$(_ENetSharpLeagueTargetDirectory)&quot;" />
   </Target>
 </Project>
